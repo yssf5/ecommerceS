@@ -1,0 +1,109 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Shopping Cart{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1 class="mb-4">Your Shopping Cart</h1>
+
+    {% if items|length > 0 %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if item.product.image %}
+                                        <img src="{{ asset('uploads/images/products/' ~ item.product.image) }}" 
+                                             alt="{{ item.product.name }}" 
+                                             class="img-thumbnail me-3" 
+                                             style="width: 100px; height: 100px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="bg-light me-3" style="width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;">
+                                            No image
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <h5 class="mb-0">{{ item.product.name }}</h5>
+                                        <small class="text-muted">{{ item.product.description }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="align-middle">{{ item.product.price }} €</td>
+                            <td class="align-middle">
+                                {% if item.product.stock > 10 %}
+                                    <span class="badge bg-success">In Stock</span>
+                                {% elseif item.product.stock > 0 %}
+                                    <span class="badge bg-warning">Low Stock</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Out of Stock</span>
+                                {% endif %}
+                                <small class="d-block text-muted">{{ item.product.stock }} available</small>
+                            </td>
+                            <td class="align-middle">
+                                <div class="d-flex align-items-center">
+                                    <a href="{{ path('app_cart_decrease', {'id': item.product.id}) }}" 
+                                       class="btn btn-sm btn-outline-secondary me-2"
+                                       {% if item.quantity <= 1 %}disabled{% endif %}>
+                                        <i class="fas fa-minus"></i>
+                                    </a>
+                                    <span class="mx-2">{{ item.quantity }}</span>
+                                    <a href="{{ path('app_cart_increase', {'id': item.product.id}) }}" 
+                                       class="btn btn-sm btn-outline-secondary ms-2"
+                                       {% if item.quantity >= item.product.stock %}disabled{% endif %}>
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                </div>
+                            </td>
+                            <td class="align-middle">{{ (item.product.price * item.quantity) }} €</td>
+                            <td class="align-middle">
+                                <a href="{{ path('app_cart_remove', {'id': item.product.id}) }}" 
+                                   class="btn btn-sm btn-danger"
+                                   onclick="return confirm('Are you sure you want to remove this item from your cart?')">
+                                    <i class="fas fa-trash"></i> Remove
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                        <td colspan="2"><strong>{{ total }} €</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-4">
+            <a href="{{ path('app_cart_clear') }}" 
+               class="btn btn-danger"
+               onclick="return confirm('Are you sure you want to clear your cart?')">
+                <i class="fas fa-trash"></i> Clear Cart
+            </a>
+            <a href="{{ path('app_product_index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Continue Shopping
+            </a>
+            <a href="{{ path('app_order_new') }}" class="btn btn-primary">
+                <i class="fas fa-check"></i> Proceed to Checkout
+            </a>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-shopping-cart me-2"></i> Your cart is empty. 
+            <a href="{{ path('app_product_index') }}" class="alert-link">Start shopping</a>!
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 
