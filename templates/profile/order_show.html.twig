@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Order Details{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <h1>Order Details</h1>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Order #{{ order.id }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Order Date:</strong> {{ order.orderDate|date('Y-m-d H:i:s') }}</p>
+                        <p><strong>Status:</strong> 
+                            <span class="badge {% if order.status == 'pending' %}bg-warning{% elseif order.status == 'completed' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ order.status|capitalize }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Amount:</strong> ${{ order.totalAmount|number_format(2) }}</p>
+                        <p><strong>Shipping Address:</strong> {{ order.shippingAddress }}</p>
+                    </div>
+                </div>
+
+                <h5>Order Items</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.orderItems %}
+                            <tr>
+                                <td>{{ item.product.name }}</td>
+                                <td>${{ item.price|number_format(2) }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>${{ (item.price * item.quantity)|number_format(2) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <a href="{{ path('app_profile_orders') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Orders
+        </a>
+    </div>
+{% endblock %} 

@@ -26,23 +26,22 @@ class Order
     #[ORM\Column(length: 255)]
     private ?string $status = null;
 
-    #[ORM\ManyToOne(inversedBy: 'orders')]
-    #[ORM\JoinColumn(nullable: false)]
-    private ?User $user = null;
-
-    #[ORM\ManyToMany(targetEntity: Product::class, inversedBy: 'orders')]
-    private Collection $products;
-
     #[ORM\Column(length: 255)]
     private ?string $shippingAddress = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $trackingNumber = null;
 
+    #[ORM\ManyToOne(inversedBy: 'orders')]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?User $user = null;
+
+    #[ORM\OneToMany(mappedBy: 'order', targetEntity: OrderItem::class, cascade: ['persist', 'remove'])]
+    private Collection $orderItems;
+
     public function __construct()
     {
-        $this->products = new ArrayCollection();
-        $this->orderDate = new \DateTime();
+        $this->orderItems = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -58,6 +57,7 @@ class Order
     public function setOrderDate(\DateTimeInterface $orderDate): static
     {
         $this->orderDate = $orderDate;
+
         return $this;
     }
 
@@ -69,6 +69,7 @@ class Order
     public function setTotalAmount(float $totalAmount): static
     {
         $this->totalAmount = $totalAmount;
+
         return $this;
     }
 
@@ -80,40 +81,7 @@ class Order
     public function setStatus(string $status): static
     {
         $this->status = $status;
-        return $this;
-    }
 
-    public function getUser(): ?User
-    {
-        return $this->user;
-    }
-
-    public function setUser(?User $user): static
-    {
-        $this->user = $user;
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Product>
-     */
-    public function getProducts(): Collection
-    {
-        return $this->products;
-    }
-
-    public function addProduct(Product $product): static
-    {
-        if (!$this->products->contains($product)) {
-            $this->products->add($product);
-        }
-
-        return $this;
-    }
-
-    public function removeProduct(Product $product): static
-    {
-        $this->products->removeElement($product);
         return $this;
     }
 
@@ -125,6 +93,7 @@ class Order
     public function setShippingAddress(string $shippingAddress): static
     {
         $this->shippingAddress = $shippingAddress;
+
         return $this;
     }
 
@@ -136,6 +105,49 @@ class Order
     public function setTrackingNumber(?string $trackingNumber): static
     {
         $this->trackingNumber = $trackingNumber;
+
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, OrderItem>
+     */
+    public function getOrderItems(): Collection
+    {
+        return $this->orderItems;
+    }
+
+    public function addOrderItem(OrderItem $orderItem): static
+    {
+        if (!$this->orderItems->contains($orderItem)) {
+            $this->orderItems->add($orderItem);
+            $orderItem->setOrder($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOrderItem(OrderItem $orderItem): static
+    {
+        if ($this->orderItems->removeElement($orderItem)) {
+            // set the owning side to null (unless already changed)
+            if ($orderItem->getOrder() === $this) {
+                $orderItem->setOrder(null);
+            }
+        }
+
         return $this;
     }
 } 

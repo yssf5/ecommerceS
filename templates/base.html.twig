@@ -69,8 +69,13 @@
                                     {{ app.user.firstName }} {{ app.user.lastName }}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="#">Profile</a></li>
-                                    <li><a class="dropdown-item" href="#">Orders</a></li>
+                                    <li><a class="dropdown-item" href="{{ path('app_profile') }}">Profile</a></li>
+                                    <li><a class="dropdown-item" href="{{ path('app_profile_orders') }}">Orders</a></li>
+                                    {% if is_granted('ROLE_ADMIN') %}
+                                        <li><a class="dropdown-item" href="{{ path('app_admin_orders_index') }}">
+                                            <i class="fas fa-shopping-cart"></i> Manage Orders
+                                        </a></li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{{ path('app_logout') }}">Logout</a></li>
                                 </ul>
@@ -84,7 +89,7 @@
                             </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ path('app_cart') }}">
+                            <a class="nav-link" href="{{ path('app_cart_index') }}">
                                 <i class="fas fa-shopping-cart"></i> Cart
                                 {% if app.session.get('cart')|length > 0 %}
                                     <span class="badge bg-danger">{{ app.session.get('cart')|length }}</span>

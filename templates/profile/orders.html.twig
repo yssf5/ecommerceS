@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>My Orders</h1>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success">
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Order #</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                    <tr>
+                        <td>{{ order.id }}</td>
+                        <td>{{ order.orderDate|date('Y-m-d H:i:s') }}</td>
+                        <td>${{ order.totalAmount|number_format(2) }}</td>
+                        <td>
+                            <span class="badge {% if order.status == 'pending' %}bg-warning{% elseif order.status == 'completed' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ order.status|capitalize }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ path('app_profile_order_show', {'id': order.id}) }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-eye"></i> View Details
+                            </a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No orders found</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 

@@ -2,136 +2,168 @@
 
 namespace App\Controller;
 
+use App\Entity\Order;
+use App\Entity\OrderItem;
 use App\Entity\Product;
 use App\Repository\ProductRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+#[Route('/cart')]
 class CartController extends AbstractController
 {
-    #[Route('/cart', name: 'app_cart')]
-    public function index(SessionInterface $session, ProductRepository $productRepository): Response
+    #[Route('/', name: 'app_cart_index', methods: ['GET'])]
+    public function index(Request $request, ProductRepository $productRepository): Response
     {
-        $cart = $session->get('cart', []);
-        $cartWithData = [];
+        $cart = $request->getSession()->get('cart', []);
+        $cartItems = [];
         $total = 0;
 
         foreach ($cart as $id => $quantity) {
             $product = $productRepository->find($id);
             if ($product) {
-                // Vérifier si le produit est toujours en stock
-                if ($product->getStock() > 0) {
-                    $cartWithData[] = [
-                        'product' => $product,
-                        'quantity' => $quantity
-                    ];
-                    $total += $product->getPrice() * $quantity;
-                } else {
-                    // Supprimer le produit du panier s'il n'est plus en stock
-                    unset($cart[$id]);
-                    $session->set('cart', $cart);
-                    $this->addFlash('warning', 'Some products were removed from your cart because they are out of stock.');
-                }
+                $cartItems[] = [
+                    'product' => $product,
+                    'quantity' => $quantity
+                ];
+                $total += $product->getPrice() * $quantity;
             }
         }
 
         return $this->render('cart/index.html.twig', [
-            'items' => $cartWithData,
+            'cartItems' => $cartItems,
             'total' => $total
         ]);
     }
 
-    #[Route('/cart/add/{id}', name: 'app_cart_add')]
-    public function add($id, SessionInterface $session, ProductRepository $productRepository): Response
+    #[Route('/add/{id}', name: 'app_cart_add', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function add(Request $request, Product $product, EntityManagerInterface $entityManager): Response
     {
-        $product = $productRepository->find($id);
+        $cart = $request->getSession()->get('cart', []);
+        $id = $product->getId();
+
+        if (!isset($cart[$id])) {
+            $cart[$id] = 0;
+        }
+        $cart[$id]++;
+
+        $request->getSession()->set('cart', $cart);
+
+        $this->addFlash('success', 'Produit ajouté au panier avec succès.');
+        return $this->redirectToRoute('app_cart_index');
+    }
+
+    #[Route('/save-orders', name: 'app_cart_save_orders', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function saveOrders(Request $request, ProductRepository $productRepository, EntityManagerInterface $entityManager): Response
+    {
+        $cart = $request->getSession()->get('cart', []);
         
-        if (!$product) {
-            $this->addFlash('error', 'Product not found.');
-            return $this->redirectToRoute('app_product_index');
+        if (empty($cart)) {
+            $this->addFlash('error', 'Votre panier est vide');
+            return $this->redirectToRoute('app_cart_index');
         }
 
-        if ($product->getStock() <= 0) {
-            $this->addFlash('error', 'This product is out of stock.');
-            return $this->redirectToRoute('app_product_index');
+        $user = $this->getUser();
+        $shippingAddress = $request->request->get('shipping_address');
+
+        if (!$shippingAddress) {
+            $this->addFlash('error', 'Veuillez fournir une adresse de livraison');
+            return $this->redirectToRoute('app_cart_index');
         }
 
-        $cart = $session->get('cart', []);
+        $totalAmount = 0;
+        $order = new Order();
+        $order->setUser($user);
+        $order->setStatus('pending');
+        $order->setOrderDate(new \DateTime());
+        $order->setShippingAddress($shippingAddress);
 
-        if (!empty($cart[$id])) {
-            if ($cart[$id] >= $product->getStock()) {
-                $this->addFlash('error', 'Maximum stock reached for this product.');
-                return $this->redirectToRoute('app_cart');
+        foreach ($cart as $id => $quantity) {
+            $product = $productRepository->find($id);
+            if ($product) {
+                $orderItem = new OrderItem();
+                $orderItem->setOrder($order);
+                $orderItem->setProduct($product);
+                $orderItem->setQuantity($quantity);
+                $orderItem->setPrice($product->getPrice());
+                
+                $totalAmount += $product->getPrice() * $quantity;
+                
+                $entityManager->persist($orderItem);
             }
-            $cart[$id]++;
-        } else {
-            $cart[$id] = 1;
         }
 
-        $session->set('cart', $cart);
-        $this->addFlash('success', 'Product added to cart successfully.');
+        $order->setTotalAmount($totalAmount);
+        $entityManager->persist($order);
+        $entityManager->flush();
 
-        return $this->redirectToRoute('app_cart');
+        // Clear the cart after saving orders
+        $request->getSession()->remove('cart');
+
+        $this->addFlash('success', 'Vos commandes ont été enregistrées avec succès.');
+        return $this->redirectToRoute('app_profile_orders');
     }
 
-    #[Route('/cart/remove/{id}', name: 'app_cart_remove')]
-    public function remove($id, SessionInterface $session): Response
+    #[Route('/remove/{id}', name: 'app_cart_remove', methods: ['POST'])]
+    public function remove(Request $request, Product $product): Response
     {
-        $cart = $session->get('cart', []);
+        $cart = $request->getSession()->get('cart', []);
+        $id = $product->getId();
 
-        if (!empty($cart[$id])) {
+        if (isset($cart[$id])) {
             unset($cart[$id]);
-            $session->set('cart', $cart);
-            $this->addFlash('success', 'Product removed from cart successfully.');
         }
 
-        return $this->redirectToRoute('app_cart');
+        $request->getSession()->set('cart', $cart);
+
+        return $this->redirectToRoute('app_cart_index');
     }
 
-    #[Route('/cart/increase/{id}', name: 'app_cart_increase')]
-    public function increase($id, SessionInterface $session, ProductRepository $productRepository): Response
+    #[Route('/clear', name: 'app_cart_clear', methods: ['POST'])]
+    public function clear(Request $request): Response
     {
-        $product = $productRepository->find($id);
-        $cart = $session->get('cart', []);
+        $request->getSession()->remove('cart');
 
-        if (!empty($cart[$id])) {
-            if ($cart[$id] >= $product->getStock()) {
-                $this->addFlash('error', 'Maximum stock reached for this product.');
-                return $this->redirectToRoute('app_cart');
-            }
+        return $this->redirectToRoute('app_cart_index');
+    }
+
+    #[Route('/increase/{id}', name: 'app_cart_increase')]
+    public function increase(Request $request, Product $product): Response
+    {
+        $cart = $request->getSession()->get('cart', []);
+        $id = $product->getId();
+
+        if (isset($cart[$id])) {
             $cart[$id]++;
-            $session->set('cart', $cart);
         }
 
-        return $this->redirectToRoute('app_cart');
+        $request->getSession()->set('cart', $cart);
+
+        return $this->redirectToRoute('app_cart_index');
     }
 
-    #[Route('/cart/decrease/{id}', name: 'app_cart_decrease')]
-    public function decrease($id, SessionInterface $session): Response
+    #[Route('/decrease/{id}', name: 'app_cart_decrease')]
+    public function decrease(Request $request, Product $product): Response
     {
-        $cart = $session->get('cart', []);
+        $cart = $request->getSession()->get('cart', []);
+        $id = $product->getId();
 
-        if (!empty($cart[$id])) {
+        if (isset($cart[$id])) {
             if ($cart[$id] > 1) {
                 $cart[$id]--;
             } else {
                 unset($cart[$id]);
             }
-            $session->set('cart', $cart);
         }
 
-        return $this->redirectToRoute('app_cart');
-    }
+        $request->getSession()->set('cart', $cart);
 
-    #[Route('/cart/clear', name: 'app_cart_clear')]
-    public function clear(SessionInterface $session): Response
-    {
-        $session->remove('cart');
-        $this->addFlash('success', 'Cart cleared successfully.');
-
-        return $this->redirectToRoute('app_cart');
+        return $this->redirectToRoute('app_cart_index');
     }
 } 
